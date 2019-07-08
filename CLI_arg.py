@@ -1,11 +1,3 @@
-#command line arguments 
-#import sys
-#print('The arguments are')
-#print(sys.argv)
-
-# python filename.py --help 
-# The above will give a list of all arguments and what they do
-
 import os
 import argparse 
 from bs4 import BeautifulSoup
@@ -27,7 +19,7 @@ link = args.url
 
 default_config = {'forms': True, 'comments': True,'passwords': True}
 
-header = "HTML Vulnerability Analyzer V 1.0 \n"
+header = "Web Security Analyzer V 1.0 \n"
 header += "====================================================\n\n"
 
 if(args.config):
@@ -55,11 +47,18 @@ if (validators.url(link)):
 
     forms           = parsed_html.find_all('form') #prints out any form that is found. The same can be done for anchors, headings, etc.
     comments        = parsed_html.find_all(string=lambda text:isinstance(text,Comment))
-    password_inputs = parsed_html.find_all('input', {'name' : 'password'}) # dictionary used here as an extra filter where it matches and filters only those name with passwords   
+    password_inputs = parsed_html.find_all('input', {'username' : 'password'}) # dictionary used here as an extra filter where it matches and filters only those name with passwords   
 
     hostname = extract_hostname(link) 
-    
     report = ''
+    link_scheme = urlparse(link).scheme
+
+    if(link_scheme =='https'):
+        report+= 'SSL Secure (Includes HTTPS). \n'
+    else:
+        report+= 'Insecure SSL. Provided Link doesn\'t include HTTPS. \n'
+
+
     if(default_config['forms']):
         for form in forms:
             if((form.get('action').find('https') < 0 )): # < 0 because the return for first condition is -1 is false
@@ -72,26 +71,40 @@ if (validators.url(link)):
                     if (urlparse(new_url).scheme != 'https'): 
                         form_secure = False
                         
-                        report += 'Insecure Form action! ' + form.get('action') + ' is not secure. \n'                   
-                        
+                        report += 'Insecure Form action! ' + form.get('action') + ' is not secure. \n'
+                    else:
+                        report += form.get('action') + ' is secure with https. \n'             
+                else:
+                    report += new_url + ' is not working.' + 'Error Code: ' + response                                
             else:
-                report += 'No form issues found '
+                report += form.get('action') + ' includes https so form is secure. \n'            
+                
+                    
     if(default_config['comments']):
-        for comment in comments:
-            if(comment.find('key: ') > -1):
-                report += 'Comment Issue! A Key is found in the HTML code in comments. Please remove the key. \n'
-        
+        if len(comments) == 0:
+            report += 'No keys found in the comment. \n'
+        else:
+            for comment in comments:
+                if(comment.find('key: ') > -1):
+                    report += 'Comment Issue! A Key is found in the HTML code in comments. Please remove the key. \n'
+                           
     if(default_config['passwords']):
-        for password_input in password_inputs:
-            if(password_input.get('type') !='password' ):
-                report += 'Password Input Issue! Plaintext password input was found. Please change to password type. \n'         
-
+        if len(password_inputs) == 0:
+            report += 'No password fields found! \n'
+        else:    
+            for password_input in password_inputs:
+                if(password_input.get('type') !='password' ):
+                    report += 'Password Input Issue! Plaintext password input was found. Please change to password type. \n'         
+                else:
+                    report += 'Password type used for password field. No password input issue. \n'            
     if(args.output):
         f = open(args.output,'w')
         f.write(header)
         f.write(report)
         f.close()
         print('Report saved to: ' + args.output)
+    print(report)        
+
 else:
     print('Link is not valid. Please input valid link')
 
